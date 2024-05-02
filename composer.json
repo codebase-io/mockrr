@@ -1,0 +1,25 @@
+{
+    "name": "mockrr/mockrr",
+    "description": "Simple, zero-dependency API mocking library.",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Mockrr\\": "src/"
+        },
+        "files": [
+            "src/router.php"
+        ]
+    },
+    "authors": [
+        {
+            "name": "adrian7",
+            "email": "adrian.silimon@yahoo.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": "~8.1",
+        "psr/cache": "^3.0@dev"
+    }
+}
