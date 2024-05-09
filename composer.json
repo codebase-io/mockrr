@@ -1,5 +1,6 @@
 {
     "name": "mockrr/mockrr",
+    "version": "0.1",
     "description": "Simple, zero-dependency API mocking library.",
     "type": "library",
     "license": "MIT",
@@ -20,6 +21,6 @@
     "minimum-stability": "dev",
     "require": {
         "php": "~8.1",
-        "psr/cache": "^3.0@dev"
+        "psr/cache": "^3"
     }
 }

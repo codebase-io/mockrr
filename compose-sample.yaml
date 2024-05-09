@@ -1,0 +1,15 @@
+services:
+  mockrr:
+    # Apache/2.4.59 (Debian) PHP/8.3.6
+    image: php:apache-bookworm
+    restart: always
+    ports:
+      - "8888:80"
+    environment:
+      # Set server document root to /var/www/mockrr/public
+      MOCKRR_APP_ROOT: /var/www/mockrr
+    volumes:
+      # Map apache2 config
+      - ./.docker/apache2.conf:/etc/apache2/sites-available/000-default.conf
+      # Map your local mocked api; see the examples folder
+      - ./tests/mocked/api:/var/www/mockrr
