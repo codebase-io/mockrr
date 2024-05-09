@@ -2,9 +2,10 @@
 
 namespace Mockrr;
 
+use InvalidArgumentException;
+use JsonException;
 use JsonSerializable;
 use RuntimeException;
-use InvalidArgumentException;
 
 /**
  * Representation of a json resource
@@ -14,15 +15,33 @@ class JsonResource extends Resource implements JsonSerializable
 {
     const TYPE = 'application/json';
 
-    private array $parsed;
+    /**
+     * @throws JsonException
+     */
+    public static function decode(string $json): array|string
+    {
+        $trimmed = trim($json);
+        if ( !str_starts_with( $trimmed, "[" ) && !str_starts_with($trimmed, "{") && !str_starts_with($trimmed, '"')){
+            // convert to json string
+            $json = '"'. $json .'"';
+        }
+        return json_decode($json, TRUE, 256, JSON_THROW_ON_ERROR);
+    }
 
+    /**
+     * @throws JsonException
+     */
     public static function fromFile(string $path): static
     {
-        return static::createFromFile(
+        $resource = static::createFromFile(
             $path,
             self::TYPE,
             self::UTF_8,
         );
+
+        $resource->data = self::decode($resource->data);
+
+        return $resource;
     }
 
     public static function fromArray( array $data ): static
@@ -30,57 +49,74 @@ class JsonResource extends Resource implements JsonSerializable
         return static::createFromArray($data, self::TYPE, self::UTF_8);
     }
 
+    /**
+     * @throws JsonException
+     */
     public static function fromString(string $data): static
     {
-        return static::createFromArray(json_decode($data, TRUE), self::TYPE, self::UTF_8);
+        $decoded = self::decode($data);
+        if (is_array($decoded)) {
+            return static::createFromArray($decoded, self::TYPE, self::UTF_8);
+        }
+
+        return static::createFromString($decoded, self::TYPE, self::UTF_8);
     }
 
+    /**
+     * @throws JsonException
+     */
     public static function fromCallback( callable $fn, ?array $vars=[] ): static
     {
-        return static::createFromCallback(
+        $resource = static::createFromCallback(
             $fn,
             $vars,
             self::TYPE,
             self::UTF_8,
         );
+
+        if (is_scalar($resource->data)) {
+            $resource->data = self::decode($resource->data);
+        }
+
+        return $resource;
     }
 
-    public function parse(): static
+    public function toArray(): array
     {
-       if (is_string($this->data)) {
-           $parsed = json_decode($this->data, TRUE);
-       }
-
-       if (is_object($this->data)) {
-           $parsed = get_object_vars($this->data);
-       }
-
-        if (is_array($this->data)) {
-            $parsed = $this->data;
+        if (!is_array($this->data)) {
+            throw new RuntimeException("Resource data cannot be converted to array. Use replaceFn for replacing values.");
         }
 
-        if (!isset($parsed)) {
-            throw new RuntimeException("Cannot parse data to array for resource.");
-        }
-
-        $this->parsed = $parsed;
-
-        return $this;
+        return $this->data;
     }
 
+    /**
+     * @throws JsonException
+     */
     public function replace(mixed $override): static
     {
-        if (!isset($this->parsed)) {
-            throw new RuntimeException("Parse the resource before replacing values.");
+        if (is_a($override, ResourceInterface::class)) {
+            return $override;
         }
 
-        if (!is_array($override)) {
-            throw new InvalidArgumentException("Overrides needs to be an array.");
+        if (is_callable($override)){
+            $replace   = self::fromCallback($override, ['cached'=> $this->data]);
+            $this->data= array_merge($this->toArray(), (array) $replace );
+            return $this;
         }
 
-        $this->data = array_merge($this->parsed, $override);
+        if (is_scalar($this->data)) {
+            // Replace entire value on scalars
+            $this->data = self::decode($override);
+            return $this;
+        }
 
-        return $this;
+        if (is_array($override)) {
+            $this->data = array_merge($this->toArray(), $override);
+            return $this;
+        }
+
+        throw new InvalidArgumentException("Cannot replace resource using input.");
     }
 
     public function print(): void

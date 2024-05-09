@@ -8,11 +8,20 @@ use RuntimeException;
 
 class Mockrr {
 
-    private array $generated = [];
+    public static $include_path = __DIR__;
 
     public function __construct(
         private CacheItemPoolInterface $cache,
     ) {}
+
+    public static function set_include_path(string $path): void
+    {
+        if (!is_dir($path)) {
+            throw new RuntimeException("Include path should be a directory.");
+        }
+
+        Mockrr::$include_path = rtrim($path, DIRECTORY_SEPARATOR);
+    }
 
     /**
      * @throws \Psr\Cache\InvalidArgumentException
@@ -38,12 +47,11 @@ class Mockrr {
         $this->cache->save($item);
     }
 
-    public function generate(mixed $resource, ?string $type=Resource::DTYPE, ?string $charset=Resource::UTF_8): void
+    public function generate(mixed $resource, ?string $type=Resource::DTYPE, ?string $charset=Resource::UTF_8): Resource
     {
         if (is_a($resource, ResourceInterface::class)) {
             /** @var ResourceInterface $resource */
-            ($this->generated[] = $resource) && $resource->print();
-            return;
+            return $resource;
         }
 
         /** @var ResourceInterface $handler */
@@ -52,20 +60,19 @@ class Mockrr {
         switch (TRUE) {
 
             case is_array($resource) :
-                $this->generate($handler::fromArray($resource));
-                return;
+                return $handler::fromArray($resource);
 
             case is_callable($resource) :
-                $this->generate($handler::fromCallback($resource, [$type, $charset]));
-                return;
+                return $handler::fromCallback($resource, [$type, $charset]);
 
             case is_readable($resource) :
-                $this->generate($handler::fromFile($resource));
-                return;
+                return $handler::fromFile($resource);
 
             case is_object($resource) :
-                $this->generate($handler::fromArray(get_object_vars($resource)));
-                return;
+                return $handler::fromArray(get_object_vars($resource));
+
+            case is_scalar($resource) :
+                return $handler::fromString($resource);
         }
 
         throw new RuntimeException("Could not generate resource from input.");
@@ -74,25 +81,57 @@ class Mockrr {
     /**
      * @throws \Psr\Cache\InvalidArgumentException
      */
-    public function once( string $id, mixed $resource ): void
+    public function once( string $id, mixed $resource ): Resource
     {
         if ($r = $this->cached( $id )) {
-            $this->generate($r);
-            return;
+            return $r;
         }
 
-        $this->generate($resource);
-        $this->cache(end($this->generated), $id);
+        $r = $this->generate($resource);
+        $this->cache($r, $id);
+
+        return $r;
     }
 
-    public function sequence($id, $seq, array $resources) : void
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function sequence(string $id, string $seq, array $resources) : Resource
     {
-        // TODO next in sequence
-        // we need to identify the sequence and the current id
+        if ($r = $this->cached( $id )) {
+            // Resource is cached
+            return $r;
+        }
+
+        $item    = $this->cache->getItem("seq_idx_{$seq}");
+        $seq_idx = $item->isHit() ? $item->get() : 0;
+        $size    = sizeof($resources);
+        $index   = array_keys($resources)[$seq_idx];
+
+        if ($seq_idx < $size) {
+            $next   = $resources[$index];
+            $seq_idx= ($seq_idx+1) >= $size ? 0 : array_keys($resources)[++$seq_idx];
+        }
+        else{
+            throw new RuntimeException("Out of bounds index {$index}.");
+        }
+
+        $this->cache->save($item->set($seq_idx));
+
+        return $this->once($id, $next);
+
     }
 
-    public function update(string $id, array $update=[]): Resource
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function update(string $id, mixed $data=[]): Resource
     {
-        // TODO ...
+        $resource = $this->cached( $id ) ?? $this->generate($data, $data['type'] ?? Resource::DTYPE, $data['charset'] ?? Resource::UTF_8);
+        $resource = $resource->replace($data);
+
+        $this->cache($resource, $id);
+
+        return $resource;
     }
 }

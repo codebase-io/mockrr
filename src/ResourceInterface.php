@@ -18,11 +18,9 @@ interface ResourceInterface extends Serializable
     public static function fromCallback(callable $fn, ?array $vars): static;
     public static function fromString(string $data): static;
 
-    public function setStatus(int $code): void;
+    public function setStatus(int $code): static;
 
     public function addHeader($name, string $value): void;
-
-    public function parse(): static;
 
     public function replace(mixed $override): static;
 

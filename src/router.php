@@ -36,18 +36,22 @@ function any($route, $path_to_include)
 {
 	route($route, $path_to_include);
 }
-function route($route, $path_to_include)
+function route($route, $path_to_include): void
 {
-	$callback = $path_to_include;
-	if (!is_callable($callback)) {
+    /** @var callable $callback */
+    $callback = $path_to_include;
+    /** @var ResourceInterface $resource */
+    $resource = $path_to_include;
+
+    $isResource = is_a($resource, ResourceInterface::class);
+    $isCallback = !$isResource && is_callable($callback);
+
+	if (!$isResource && !$isCallback) {
 		if (!strpos($path_to_include, '.php')) {
 			$path_to_include .= '.php';
 		}
 	}
-	if ($route == "/404") {
-		include_once __DIR__ . "/$path_to_include";
-		exit();
-	}
+
 	$request_url = filter_var($_SERVER['REQUEST_URI'], FILTER_SANITIZE_URL);
 	$request_url = rtrim($request_url, '/');
 	$request_url = strtok($request_url, '?');
@@ -56,15 +60,22 @@ function route($route, $path_to_include)
 	array_shift($route_parts);
 	array_shift($request_url_parts);
 	if ($route_parts[0] == '' && count($request_url_parts) == 0) {
+        // Resource
+        if ($isResource) {
+            $resource->print();
+            exit();
+        }
 		// Callback function
-		if (is_callable($callback)) {
+		if ($isCallback) {
 			call_user_func_array($callback, []);
 			exit();
 		}
-		include_once __DIR__ . "/$path_to_include";
+
+		include Mockrr::$include_path . "$path_to_include";
 		exit();
 	}
 	if (count($route_parts) != count($request_url_parts)) {
+        // Ret: route not matched
 		return;
 	}
 	$parameters = [];
@@ -75,15 +86,24 @@ function route($route, $path_to_include)
 			array_push($parameters, $request_url_parts[$__i__]);
 			$$route_part = $request_url_parts[$__i__];
 		} else if ($route_parts[$__i__] != $request_url_parts[$__i__]) {
+            // Ret: route not matched
 			return;
 		}
 	}
+
+    // Resource
+    if ($isResource) {
+        $resource->print();
+        exit();
+    }
+
 	// Callback function
-	if (is_callable($callback)) {
+	if ($isCallback) {
 		call_user_func_array($callback, $parameters);
 		exit();
 	}
-	include_once __DIR__ . "/$path_to_include";
+
+	include Mockrr::$include_path . "$path_to_include";
 	exit();
 }
 function out($text)

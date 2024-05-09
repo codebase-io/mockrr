@@ -27,13 +27,16 @@ abstract class Resource implements ResourceInterface
         $this->headers['Content-Type'] = "{$this->type}; charset={$this->charset}";
     }
 
-    public function setStatus(int $code): void
+    public function setStatus(int $code): static
     {
         $this->status = $code;
+        return $this;
     }
 
     protected static function createFromFile(string $path, $type, $charset): static
     {
+        $path = is_readable($path) ? $path : (Mockrr::$include_path . $path);
+
         if (is_readable($path)) {
             return static::createFromString(file_get_contents($path), $type, $charset);
         }
@@ -87,11 +90,17 @@ abstract class Resource implements ResourceInterface
         $this->data    = $data['data'];
         $this->type    = $data['type'];
         $this->charset = $data['charset'];
+        $this->headers = $data['headers'];
     }
 
     public function __serialize(): array
     {
-        return ['data'=> $this->data, 'type'=> $this->type, 'charset'=> $this->charset];
+        return [
+            'data'    => $this->data,
+            'type'    => $this->type,
+            'charset' => $this->charset,
+            'headers' => $this->headers,
+        ];
     }
 
     public function __unserialize( array $data ): void
@@ -99,6 +108,7 @@ abstract class Resource implements ResourceInterface
         $this->data    = $data['data'];
         $this->type    = $data['type'];
         $this->charset = $data['charset'];
+        $this->headers = $data['headers'];
     }
 
     public static function getTypeHandler(string $type): string
