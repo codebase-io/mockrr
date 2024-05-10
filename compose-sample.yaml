@@ -5,11 +5,8 @@ services:
     restart: always
     ports:
       - "8888:80"
-    environment:
-      # Set server document root to /var/www/mockrr/public
-      MOCKRR_APP_ROOT: /var/www/mockrr
     volumes:
-      # Map apache2 config
+      # Map server config, setting the path to the DocumentRoot
       - ./.docker/apache2.conf:/etc/apache2/sites-available/000-default.conf
-      # Map your local mocked api; see the examples folder
-      - ./tests/mocked/api:/var/www/mockrr
+      # Map current folder to container; see the examples folder for index.php
+      - .:/var/www/mockrr

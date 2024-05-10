@@ -112,7 +112,7 @@ class JsonResource extends Resource implements JsonSerializable
         }
 
         if (is_array($override)) {
-            $this->data = array_merge($this->toArray(), $override);
+            $this->data = array_replace_recursive($this->toArray(), $override);
             return $this;
         }
 

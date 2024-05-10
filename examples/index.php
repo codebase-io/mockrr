@@ -110,11 +110,35 @@ post('/example/secret/match', '/include-file-2');
 // Display index
 ?>
 <body style="font: inherit; font-size: 100%; font-family: monospace;">
+    <style media="screen">
+        code{
+            padding: 10px;
+            border-radius: 3px;
+            background: bisque;
+            color: black;
+        }
+    </style>
     <h2>Mockrr - simple API mocking library. In PHP.</h2>
     <h3>Examples index</h3>
     <ul>
-        <li><a href="/example/include/include">Get request with callback</a></li>
-        <li><a href="/example/static/xml">Get static resource from file</a></li>
+        <li>
+            <a href="/example/get">Request with callback</a>
+            <pre><code>get( '/example/get', fn() => print "Simple GET" );</code></pre>
+        </li>
+        <li>
+            <a href="/example/include/include">Include file on request</a>
+            <pre><code>get('/example/include', '/include-file');</code></pre>
+        </li>
+        <li>
+            <a href="/example/static/xml">Serve static resource from file</a><br/>
+            <code><br/>
+                get('/example/static/xml', function () {<br/>
+                    header("Content-Type: application/xml");<br/>
+                    print file_get_contents(__DIR__ . '/res/sample.xml');<br/>
+                });
+            </code>
+        </li>
+        <li><a href="/example/json">Generated resource</a></li>
         <li><a href="#" onclick="document.forms.postForm1.submit()">Update via <em>POST</em></a></li>
     </ul>
     <form name="postForm1" method="post" action="/example/resource/first">

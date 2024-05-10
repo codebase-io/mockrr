@@ -2,13 +2,25 @@
 
 namespace Mockrr;
 
+use RuntimeException;
+use Mockrr\Request\Request;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
-use RuntimeException;
 
+// TODO
+// - support for retrieving json request body
+// - support for retrieving xml and graphql resources
+
+/**
+ * Package utility class
+ * @see Resource
+ * @see Request
+ * @see ../examples/index.php
+ * @package mockrr/mockrr
+ */
 class Mockrr {
 
-    public static $include_path = __DIR__;
+    public static string $include_path = __DIR__;
 
     public function __construct(
         private CacheItemPoolInterface $cache,
@@ -24,9 +36,9 @@ class Mockrr {
     }
 
     /**
-     * @throws \Psr\Cache\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
-    private function cached(string $key): ?Resource
+    public function cached(string $key): ?Resource
     {
         if ($this->cache->hasItem($key)) {
             $item = $this->cache->getItem($key);
@@ -79,7 +91,7 @@ class Mockrr {
     }
 
     /**
-     * @throws \Psr\Cache\InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     public function once( string $id, mixed $resource ): Resource
     {
@@ -133,5 +145,10 @@ class Mockrr {
         $this->cache($resource, $id);
 
         return $resource;
+    }
+
+    public function request(): Request
+    {
+        // TODO...
     }
 }

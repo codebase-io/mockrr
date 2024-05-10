@@ -52,6 +52,11 @@ abstract class Resource implements ResourceInterface
     ): static
     {
         $data = call_user_func($fn, $vars, $type ?? static::DTYPE, $charset ?? static::UTF_8);
+        if (is_a($data, ResourceInterface::class)) {
+            // Callback returning a resource
+            return $data;
+        }
+
         return new static($data, $type, $charset);
     }
 
