@@ -1,6 +1,5 @@
 {
     "name": "mockrr/mockrr",
-    "version": "0.1",
     "description": "Simple, zero-dependency API mocking library.",
     "type": "library",
     "license": "MIT",
