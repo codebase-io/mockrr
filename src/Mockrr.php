@@ -9,7 +9,7 @@ use Psr\Cache\InvalidArgumentException;
 
 // TODO
 // - support for retrieving json request body
-// - support for retrieving xml and graphql resources
+// - support for retrieving xml and graphql resources, maybe these should be an extras package
 
 /**
  * Package utility class
@@ -23,7 +23,8 @@ class Mockrr {
     public static string $include_path = __DIR__;
 
     public function __construct(
-        private CacheItemPoolInterface $cache,
+        private readonly CacheItemPoolInterface $cache,
+        private readonly bool $keepVersions = FALSE,
     ) {}
 
     public static function set_include_path(string $path): void
@@ -38,7 +39,7 @@ class Mockrr {
     /**
      * @throws InvalidArgumentException
      */
-    public function cached(string $key): ?Resource
+    public function cached(string $key): ?ResourceInterface
     {
         if ($this->cache->hasItem($key)) {
             $item = $this->cache->getItem($key);
@@ -48,18 +49,54 @@ class Mockrr {
         return NULL;
     }
 
-    // Persist resource under key
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function cachedVersion(string $version): ?ResourceInterface
+    {
+        if (!$this->keepVersions){
+            throw new RuntimeException("Versioning is disabled.");
+        }
+
+        return $this->cache->getItem("resource.version.$version")->get();
+    }
 
     /**
      * @throws InvalidArgumentException
      */
-    public function cache(Resource $resource, string $key=NULL): void
+    public function cachedList(): array
+    {
+        $item = $this->cache->getItem('resources.cached');
+        return $item->isHit() ? (array) $item->get() : [];
+    }
+
+    /**
+     * Persist resource under key
+     * @throws InvalidArgumentException
+     */
+    public function cache(ResourceInterface $resource, string $key): void
     {
         $item = $this->cache->getItem($key)->set($resource);
         $this->cache->save($item);
+
+        // Save to list of cached resources
+        $now  = microtime();
+        $item = $this->cache->getItem('resources.cached');
+        $list = $item->isHit() ? (array) $item->get() : [];
+        $list[$key] = $now;
+
+        $this->cache->save($item->set($list));
+
+        // Save version is enabled
+        if ($this->keepVersions) {
+            $item = $this->cache->getItem("resource.version.$now");
+            $item->set($resource);
+
+            $this->cache->save($item->set($list));
+        }
     }
 
-    public function generate(mixed $resource, ?string $type=Resource::DTYPE, ?string $charset=Resource::UTF_8): Resource
+    public function generate(mixed $resource, ?string $type=Resource::DTYPE, ?string $charset=Resource::UTF_8): ResourceInterface
     {
         if (is_a($resource, ResourceInterface::class)) {
             /** @var ResourceInterface $resource */
@@ -93,7 +130,7 @@ class Mockrr {
     /**
      * @throws InvalidArgumentException
      */
-    public function once( string $id, mixed $resource ): Resource
+    public function once( string $id, mixed $resource ): ResourceInterface
     {
         if ($r = $this->cached( $id )) {
             return $r;
@@ -108,7 +145,7 @@ class Mockrr {
     /**
      * @throws InvalidArgumentException
      */
-    public function sequence(string $id, string $seq, array $resources) : Resource
+    public function sequence(string $id, string $seq, array $resources) : ResourceInterface
     {
         if ($r = $this->cached( $id )) {
             // Resource is cached
@@ -125,7 +162,7 @@ class Mockrr {
             $seq_idx= ($seq_idx+1) >= $size ? 0 : array_keys($resources)[++$seq_idx];
         }
         else{
-            throw new RuntimeException("Out of bounds index {$index}.");
+            throw new RuntimeException("Out of bounds index $index.");
         }
 
         $this->cache->save($item->set($seq_idx));
@@ -137,7 +174,7 @@ class Mockrr {
     /**
      * @throws InvalidArgumentException
      */
-    public function update(string $id, mixed $data=[]): Resource
+    public function update(string $id, mixed $data=[]): ResourceInterface
     {
         $resource = $this->cached( $id ) ?? $this->generate($data, $data['type'] ?? Resource::DTYPE, $data['charset'] ?? Resource::UTF_8);
         $resource = $resource->replace($data);
